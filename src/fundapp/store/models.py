@@ -15,11 +15,12 @@ from sqlalchemy import (
     Text,
     func,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import ENUM, JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 # NOTE: db/migrations/0001_initial.sql is the source of truth. These ORM models
-# mirror it for application use; enum columns are mapped as strings for simplicity.
+# mirror it for application use. Enum columns use the Postgres ENUM types the
+# migrations create (create_type=False: Alembic owns the schema, not the ORM).
 
 
 class Base(DeclarativeBase):
@@ -30,7 +31,21 @@ class Instrument(Base):
     __tablename__ = "security_master"
 
     security_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    instrument_type: Mapped[str] = mapped_column(String(16))
+    instrument_type: Mapped[str] = mapped_column(
+        ENUM(
+            "equity",
+            "etf",
+            "fund",
+            "bond",
+            "cash",
+            "option",
+            "future",
+            "forward",
+            "swap",
+            name="instrument_type",
+            create_type=False,
+        )
+    )
     primary_ticker: Mapped[str | None] = mapped_column(String(48))
     isin: Mapped[str | None] = mapped_column(CHAR(12))
     figi: Mapped[str | None] = mapped_column(CHAR(12))
@@ -66,11 +81,17 @@ class DerivativeTerms(Base):
     security_id: Mapped[int] = mapped_column(
         ForeignKey("security_master.security_id"), primary_key=True
     )
-    option_type: Mapped[str | None] = mapped_column(String(4))
+    option_type: Mapped[str | None] = mapped_column(
+        ENUM("call", "put", name="option_type", create_type=False)
+    )
     strike: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
     expiry: Mapped[date | None] = mapped_column(Date)
-    exercise_style: Mapped[str | None] = mapped_column(String(10))
-    settlement_type: Mapped[str | None] = mapped_column(String(10))
+    exercise_style: Mapped[str | None] = mapped_column(
+        ENUM("american", "european", name="exercise_style", create_type=False)
+    )
+    settlement_type: Mapped[str | None] = mapped_column(
+        ENUM("physical", "cash", name="settlement_type", create_type=False)
+    )
     tick_size: Mapped[Decimal | None] = mapped_column(Numeric(18, 8))
     tick_value: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
     notional: Mapped[Decimal | None] = mapped_column(Numeric(20, 4))
@@ -138,7 +159,27 @@ class Transaction(Base):
     txn_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     account_id: Mapped[int] = mapped_column(ForeignKey("accounts.account_id"))
     security_id: Mapped[int | None] = mapped_column(ForeignKey("security_master.security_id"))
-    txn_type: Mapped[str] = mapped_column(String(20))
+    txn_type: Mapped[str] = mapped_column(
+        ENUM(
+            "buy",
+            "sell",
+            "dividend",
+            "interest",
+            "fee",
+            "deposit",
+            "withdrawal",
+            "corp_action",
+            "premium",
+            "exercise",
+            "assignment",
+            "expiry",
+            "roll",
+            "variation_margin",
+            "margin_post",
+            name="txn_type",
+            create_type=False,
+        )
+    )
     trade_date: Mapped[date] = mapped_column(Date)
     settle_date: Mapped[date | None] = mapped_column(Date)
     quantity: Mapped[Decimal | None] = mapped_column(Numeric(24, 8))
