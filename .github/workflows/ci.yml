@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: timescale/timescaledb:latest-pg17
+        env:
+          POSTGRES_USER: fund
+          POSTGRES_PASSWORD: fund
+          POSTGRES_DB: fund_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package
+        run: pip install -e ".[analytics,dev]"
+      - name: Apply schema
+        env:
+          DATABASE_URL: postgresql+psycopg://fund:fund@localhost:5432/fund_test
+        run: alembic upgrade head
+      - name: Enforce notebooks/ never imports src/
+        run: make check-notebooks
+      - name: Lint
+        run: ruff check src tests
+      - name: Test
+        env:
+          DATABASE_URL: postgresql+psycopg://fund:fund@localhost:5432/fund_test
+        run: pytest -q

@@ -1,0 +1,28 @@
+services:
+  db:
+    image: timescale/timescaledb:latest-pg17
+    environment:
+      POSTGRES_USER: fund
+      POSTGRES_PASSWORD: fund
+      POSTGRES_DB: fund
+    ports: ["5432:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # No init-script mount: Postgres starts genuinely empty. `make migrate`
+    # (alembic upgrade head) is the one path that creates the schema, in every
+    # environment — local, CI, a future teammate's machine — with no separate
+    # bootstrap-then-stamp step to forget.
+  app:
+    build: .
+    depends_on: [db]
+    environment:
+      DATABASE_URL: postgresql+psycopg://fund:fund@db:5432/fund
+      PARQUET_ROOT: /data/parquet
+    volumes:
+      - ./:/app
+      - appdata:/data
+    command: ["sleep", "infinity"]
+
+volumes:
+  pgdata:
+  appdata:

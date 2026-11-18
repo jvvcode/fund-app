@@ -1,0 +1,14 @@
+# Normalise line endings so files written on Windows still run in Docker,
+# CI (Linux) and on the VM. Without this, Git on Windows can check out
+# shell scripts with CRLF endings and they fail with "bad interpreter".
+* text=auto eol=lf
+
+# PowerShell and batch files keep Windows line endings.
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary files
+*.parquet binary
+*.png binary
+*.zip binary
